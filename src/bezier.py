@@ -9,6 +9,7 @@ class BezierCurve:
         self.curve_type = curve_type
         self.smoothness = smoothness
         self.extra_points = ''
+        self.surface_points = ''
 
     def find_c1_points(self):
         new_cp = []
@@ -150,12 +151,12 @@ class BezierSurface:
         self.resolution = resolution
         self.n_div = n_div
 
-    def find_points_uv(self, n, m, u , v):
+    def find_points_uv(self, n, m, u, v):
         # p(u,v) = SUM_{i=0}^{n} SUM_{j=0}^{n} B_{i}^{n}(u) B_{j}^{m}(v) k_{ij}
         # where B_{n}^{i}(u) = comb(n, i) u^{i} (1-u)^{n-i}
         result = 0.0
-        for i in range(n):
-            for j in range(m):
+        for i in range(n+1):
+            for j in range(m+1):
                 #breakpoint()
                 result += self.solve_B_u(u, n, i) * self.solve_B_u(v, m, j) * self.control_points[i][j]
         
@@ -164,15 +165,57 @@ class BezierSurface:
     def solve_B_u(self, u, n, i):
         return math.comb(n, i) * math.pow(u, i) * math.pow((1 - u), (n-i))
 
+    def find_triangles(self):
+        '''
+        points surface_points AxB
+        '''
+        x = 0
+
+        all_triangles = []
+
+        for row in self.surface_points:
+            y = 0
+            for column in row:
+                try:
+                    triangle_bot = [
+                        self.surface_points[x][y],
+                        self.surface_points[x+1][y],
+                        self.surface_points[x+1][y+1],
+                        ]
+                    
+                    triangle_top = [
+                        self.surface_points[x][y],
+                        self.surface_points[x][y+1],
+                        self.surface_points[x+1][y+1],
+                        ]
+                except IndexError:
+                    pass
+                y += 1
+
+                all_triangles.append(triangle_bot)
+                all_triangles.append(triangle_top)
+
+            x += 1
+
+        return all_triangles
+
+
+    def update_surface_points(self, points):
+        self.surface_points = points
+
     def solve_surface(self):
         u = 0.0
-        v =0.0
         #breakpoint()
         surface_points = []
         while u <= 1.0:
+            v = 0.0
+            row_surface_points = []
             while v <= 1.0:
-                surface_points.append(self.find_points_uv(self.n, self.m, u, v))
-                v += self.resolution
-            u += self.resolution
-
+                row_surface_points.append(self.find_points_uv(self.n, self.m, u, v))
+                #breakpoint
+                v += 0.1 #self.resolution # v += 0.1
+            surface_points.append(row_surface_points)
+            #breakpoint()
+            u += 0.1#self.resolution
+        self.surface_points = surface_points
         return surface_points
