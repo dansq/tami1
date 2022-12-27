@@ -1,2 +1,9 @@
 __*/
 *__*/
+
+/src/run.sh
+/src/test_main.py
+/src/camera.py
+/src/bezier_test.py
+/src/app.py
+/src/models/

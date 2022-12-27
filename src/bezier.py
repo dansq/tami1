@@ -1,4 +1,5 @@
 import math
+import numpy as np
 
 
 class BezierCurve:
@@ -144,21 +145,30 @@ class BezierCurve:
 
 class BezierSurface:
 
-    def __init__(self, control_points, m, n, resolution=0.1, n_div='') -> None:
+    def __init__(self, control_points, n, m, n_div=2) -> None:
         self.control_points = control_points
-        self.m = m
         self.n = n
-        self.resolution = resolution
+        self.m = m
+        self.u_step = 1 / (n_div * n)
+        self.v_step = 1 / (n_div * m)
         self.n_div = n_div
 
-    def find_points_uv(self, n, m, u, v):
+    def find_point_uv(self, n, m, u, v):
         # p(u,v) = SUM_{i=0}^{n} SUM_{j=0}^{n} B_{i}^{n}(u) B_{j}^{m}(v) k_{ij}
         # where B_{n}^{i}(u) = comb(n, i) u^{i} (1-u)^{n-i}
-        result = 0.0
+        result = np.zeros(3, dtype=np.float32)
         for i in range(n+1):
             for j in range(m+1):
                 #breakpoint()
-                result += self.solve_B_u(u, n, i) * self.solve_B_u(v, m, j) * self.control_points[i][j]
+                B_u = self.solve_B_u(u, n, i)
+                B_v = self.solve_B_u(v, m, j)
+                cp = self.control_points[i][j]
+
+                #print(f'Bu, Bv, i, j = {B_u}, {B_v}, {i}, {j}')
+
+                result[0] +=  B_u * B_v * cp[0]
+                result[1] +=  B_u * B_v * cp[1]
+                result[2] +=  B_u * B_v * cp[2]
         
         return result
 
@@ -169,13 +179,15 @@ class BezierSurface:
         '''
         points surface_points AxB
         '''
-        x = 0
+        y = 0
 
         all_triangles = []
 
         for row in self.surface_points:
-            y = 0
-            for column in row:
+            #breakpoint()
+            x = 0
+            for _ in row:
+                #breakpoint()
                 try:
                     triangle_bot = [
                         self.surface_points[x][y],
@@ -189,13 +201,17 @@ class BezierSurface:
                         self.surface_points[x+1][y+1],
                         ]
                 except IndexError:
-                    pass
-                y += 1
+                    break
+                x += 1
 
                 all_triangles.append(triangle_bot)
                 all_triangles.append(triangle_top)
 
-            x += 1
+            y += 1
+
+        all_triangles = np.array(all_triangles, dtype=np.float32)
+
+        self.triangles = all_triangles
 
         return all_triangles
 
@@ -205,17 +221,31 @@ class BezierSurface:
 
     def solve_surface(self):
         u = 0.0
-        #breakpoint()
         surface_points = []
         while u <= 1.0:
             v = 0.0
             row_surface_points = []
             while v <= 1.0:
-                row_surface_points.append(self.find_points_uv(self.n, self.m, u, v))
-                #breakpoint
-                v += 0.1 #self.resolution # v += 0.1
+                #print(f'u, v, m, n: {u}, {v}, {self.m}, {self.n}')
+                #breakpoint()
+                new_surface_point = self.find_point_uv(self.n, self.m, v, u)
+                #breakpoint()
+                print(f'new point: {new_surface_point}')
+                row_surface_points.append(new_surface_point)
+                if v == 1.0:
+                    break
+                if v + self.v_step > 1.0:
+                    v = 1.0
+                else:
+                    v += self.v_step # v += 0.1
+                
             surface_points.append(row_surface_points)
-            #breakpoint()
-            u += 0.1#self.resolution
-        self.surface_points = surface_points
+            if u == 1.0:
+                break
+            if u + self.u_step > 1.0:
+                u = 1.0
+            else:
+                u += self.u_step
+
+        self.surface_points = np.array(surface_points, dtype=np.float32)
         return surface_points
