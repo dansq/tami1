@@ -145,13 +145,14 @@ class BezierCurve:
 
 class BezierSurface:
 
-    def __init__(self, control_points, n, m, n_div=2) -> None:
+    def __init__(self, control_points, n, m, n_div=2, verbose=False) -> None:
         self.control_points = control_points
         self.n = n
         self.m = m
         self.u_step = 1 / (n_div * n)
         self.v_step = 1 / (n_div * m)
         self.n_div = n_div
+        self.verbose = verbose
 
     def find_point_uv(self, n, m, u, v):
         # p(u,v) = SUM_{i=0}^{n} SUM_{j=0}^{n} B_{i}^{n}(u) B_{j}^{m}(v) k_{ij}
@@ -159,12 +160,9 @@ class BezierSurface:
         result = np.zeros(3, dtype=np.float32)
         for i in range(n+1):
             for j in range(m+1):
-                #breakpoint()
                 B_u = self.solve_B_u(u, n, i)
                 B_v = self.solve_B_u(v, m, j)
                 cp = self.control_points[i][j]
-
-                #print(f'Bu, Bv, i, j = {B_u}, {B_v}, {i}, {j}')
 
                 result[0] +=  B_u * B_v * cp[0]
                 result[1] +=  B_u * B_v * cp[1]
@@ -226,11 +224,11 @@ class BezierSurface:
             v = 0.0
             row_surface_points = []
             while v <= 1.0:
-                #print(f'u, v, m, n: {u}, {v}, {self.m}, {self.n}')
-                #breakpoint()
                 new_surface_point = self.find_point_uv(self.n, self.m, v, u)
-                #breakpoint()
-                print(f'new point: {new_surface_point}')
+                
+                if self.verbose:
+                    print(f'new point: {new_surface_point}')
+
                 row_surface_points.append(new_surface_point)
                 if v == 1.0:
                     break
