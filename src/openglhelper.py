@@ -31,7 +31,8 @@ def process_input(window):
 def setup_triangles_vertices(triangles:np.ndarray, shading='smooth', normals=False, use_colors=False, colors=False, has_texture=False, tex_coord=False):
     """formats points to a valid opengl VBO format"""
     if not normals:
-        vbo_normals = compute_triangle_normals(triangles, shading=shading)
+        vbo_normals = compute_triangle_normals(triangles, shading='flat')
+        #breakpoint()
     if use_colors and not colors:
         # TODO, add something to use colors instead of textures
         pass
@@ -46,9 +47,10 @@ def setup_triangles_vertices(triangles:np.ndarray, shading='smooth', normals=Fal
             aux_position = vertex.tolist() # 3 floats
             aux_tex_coord = vbo_tex_coord[v_idx].tolist() # 2 floats
             aux_normals = vbo_normals[v_idx].tolist() # 3 floats
+            #   breakpoint()
             vbo_data.append(aux_position + aux_tex_coord + aux_normals)
             v_idx += 1
-    
+    #breakpoint()
     vbo_data = np.array(vbo_data, dtype=np.float32)  
 
     return vbo_data
@@ -69,11 +71,12 @@ def compute_triangle_normals(triangles:np.ndarray, shading:str='flat', grouped_t
     # so we just need to divide by three to get the number of vertices
     vertices_normals = np.zeros((triangles.size // 3, 3), dtype=np.float32)
 
+    
     if shading == 'flat':
         v_idx = 0
         for triangle in triangles:
             triangle_normal = pyrr.vector3.normalize(
-                compute_triangle_face_normal_vector(triangles)
+                compute_triangle_face_normal_vector(triangle)
                 )
             for _ in triangle:
                 vertices_normals[v_idx] = triangle_normal
@@ -99,21 +102,43 @@ def compute_triangle_normals(triangles:np.ndarray, shading:str='flat', grouped_t
                     pass
                 vertex_stride += 3
         else:
+            vertex_id_dict = {}
+            vertex_map_dict = {}
+            counter = 0
+            all_counter = 0
+            #breakpoint()
             for triangle in triangles:
-                if type(triangle[0]) != np.ndarray:
-                    #breakpoint()
-                    pass
+                for point in triangle:
+                    if str(point) not in vertex_id_dict.keys():
+                        vertex_id_dict[str(point)] = counter
+                        counter += 1
+            
+            for triangle in triangles:
+                for point in triangle:
+                    vertex_map_dict[all_counter] = vertex_id_dict[str(point)]
+                    all_counter += 1
+
+            #breakpoint()
+
+            for triangle in triangles:
                 
                 triangle_normal = compute_triangle_face_normal_vector(triangle)
-                vertices_normals[vertex_stride] += triangle_normal
-                vertices_normals[vertex_stride+1] += triangle_normal
-                vertices_normals[vertex_stride+2] += triangle_normal
+                A = vertex_id_dict[str(triangle[0])]
+                B = vertex_id_dict[str(triangle[1])]
+                C = vertex_id_dict[str(triangle[2])]
+                vertices_normals[A] += triangle_normal
+                vertices_normals[B] += triangle_normal
+                vertices_normals[C] += triangle_normal
 
                 vertex_stride += 3
-
-        
+            #breakpoint()
+            for vertex in range(all_counter):
+                vertices_normals[vertex] = vertices_normals[vertex_map_dict[vertex]]
+            #breakpoint()
         for idx, normal in enumerate(vertices_normals):
             vertices_normals[idx] = pyrr.vector3.normalize(normal)
+
+        #breakpoint()
     return vertices_normals
 
 def compute_triangle_face_normal_vector(triangle:np.ndarray) -> np.ndarray:

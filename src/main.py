@@ -7,9 +7,13 @@ import argparse
 
 #region ARGUMENT PARSER SETUP
 parser = argparse.ArgumentParser(description="Bézier surface drawing application")
+parser.add_argument('-m', metavar='int', type=int, default=2, help='m degree, default is 2')
+parser.add_argument('-n', metavar='int', type=int, default=2, help='n degree, default is 2')
 parser.add_argument('-s', '--subdivisions', metavar='int', type=int, default=8, help='number of subdivisions, default is 8')
 parser.add_argument('-cp', '--control_points', metavar='filepath', default='./control_points', type=str, help='filepath to the control points file')
 parser.add_argument('-tp', '--texture_path', metavar='filepath', default='gfx/map_checker.png', type=str, help='filepath to the texture file')
+parser.add_argument('-ks', metavar='float', type=float, default = 0.5, help='ks coefficient for lighting')
+parser.add_argument('-kd', metavar='float', type=float, default = 0.5, help='kd coefficient for lighting')
 parser.add_argument('-c', '--center', action='store_true', help='center the surface at the origin')
 parser.add_argument('-v', '--verbose', action='store_true', help='activate verbose mode')
 
@@ -41,12 +45,12 @@ def translate_to(points_matrix, translation):
 
 #region EXECUTION
 verbose = args.verbose
-center = args.center
+center_bool = args.center
 n_div = args.subdivisions
 control_points = read_control_points_from_file(args.control_points)
 tex_path = args.texture_path
 
-if center:
+if center_bool:
     center = find_surface_center_point(control_points)
     oringal_cp = control_points
     control_points = translate_to(control_points, -center)
@@ -54,12 +58,12 @@ if center:
 surface = BezierSurface(control_points, 2, 2, n_div=n_div)
 
 if verbose:
-    print('control points')
-    for row in oringal_cp:
-        print(row)
-    print('---')
+    if center_bool:
+        print('control points')
+        for row in oringal_cp:
+            print(row)
+        print('---')
 
-    if center:
         print('Center')
         print(center)
         print('............')

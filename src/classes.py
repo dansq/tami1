@@ -26,6 +26,7 @@ class Camera:
         self.theta = 0
         self.phi = 0
         self.update_vectors()
+        #print(f'position: {self.position}\nforwards: {self.forwards}\nright: {self.right}\nup: {self.up}')
     
     def update_vectors(self):
 
@@ -43,6 +44,17 @@ class Camera:
         self.right = np.cross(self.forwards, globalUp)
 
         self.up = np.cross(self.right, self.forwards)
+    
+    def set_forwards(self, fwd:tuple):
+        self.forwards = np.array(fwd, dtype=np.float32)
+        #breakpoint()
+        globalUp = np.array([0,0,1], dtype=np.float32)
+
+        self.right = np.cross(self.forwards, globalUp)
+
+        self.up = np.cross(self.right, self.forwards)
+        #print(f'position: {self.position}\nforwards: {self.forwards}\nright: {self.right}\nup: {self.up}')
+        
 
 class Material:
 
@@ -121,23 +133,30 @@ class Transforms:
         self.eulers = np.array(eulers, dtype=np.float32)
 
 class ObjectContainer:
-    """holds transforms and a mesh"""
+    """holds transforms, texture and a mesh"""
 
-    def __init__(self, transform, mesh) -> None:
+    def __init__(self, transform:Transforms, mesh:Mesh, texture:Material) -> None:
         self.mesh = mesh
+        self.texture = texture
         self.transforms = transform
 
 class World:
     """holds surface and lights"""
 
-    def __init__(self, surface):
+    def __init__(self, surface_vbo, texture):
 
-        self.surface = [
-            Transforms(
-                position = [0,0,0],
-                eulers = [0,0,0]
-            ),
-        ]
+        surface_transform = Transforms(
+                position=[0,0.5,-3],
+                eulers=[0,0,0]
+            )
+
+        surface_mesh = Mesh(surface_vbo)
+        
+        self.surface = ObjectContainer(
+            transform=surface_transform,
+            mesh=surface_mesh,
+            texture=texture
+            )
 
         self.lights = [
             Light(
@@ -151,20 +170,22 @@ class World:
                     np.random.uniform(low=0.5, high=1.0), 
                     np.random.uniform(low=0.5, high=1.0)
                 ],
-                strength = 3
+                strength = 10
             )
+            for i in range(8)
         ]
 
         self.camera = Camera(
             position = [0,0,2]
         )
 
-    def update(self, rate):
+        #self.camera.set_forwards((0,1,0))
 
-        for cube in self.cubes:
-            cube.eulers[1] += 0.25 * rate
-            if cube.eulers[1] > 360:
-                cube.eulers[1] -= 360
+    def update(self, surface:ObjectContainer, rate, axis=2):
+        #breakpoint()
+        surface.transforms.eulers[axis] += 0.25 * rate
+        if surface.transforms.eulers[axis] > 360:
+            surface.transforms.eulers[axis] -= 360
 
     def move_camera(self, dPos):
 
@@ -186,30 +207,28 @@ class World:
 
 class App:
 
-    def __init__(self, surface:BezierSurface, tex_path='gfx/map_checker.png', verbose=False) -> None:
+    def __init__(self, surface:BezierSurface, tex_path='gfx/map_checker.png', verbose=False, camera_pos=(0,0,4), shading='smooth') -> None:
         """initialize the program"""
         # initialize glfw, create window, load shaders, etc
-        self._start_context()
+        self._start_context(shading=shading)
 
         # models, textures, other stuff
-        self.square = Transforms(
-            position=[0,0.5,-3],
-            eulers=[0,0,0]
-        )
-
-        surface_data = setup_triangles_vertices(surface.triangles, shading='smooth', has_texture=True)
+        surface_data = setup_triangles_vertices(surface.triangles, shading=shading, has_texture=True)
         if verbose:
             print(surface_data)
 
-        square_vbo = VBO(data=surface_data, stride=32, offsets=((3, 0),(2,12),(3,20)), elements_per_vertex=8)
+        surface_vbo = VBO(data=surface_data, stride=32, offsets=((3, 0),(2,12),(3,20)), elements_per_vertex=8)
+        texture = Material(tex_path)
+        world = World(surface_vbo, texture)
 
-        self.square_mesh = Mesh(square_vbo)
-        self.texture = Material(tex_path)
+
 
         projection_transform = pyrr.matrix44.create_perspective_projection(
-            fovy=65, aspect=640/480,
+            fovy=45, aspect=640/480,
             near=0.1, far=10, dtype=np.float32
         )
+
+        #print(projection_transform)
 
         glUniformMatrix4fv(
             glGetUniformLocation(self.shader.shader, 'projection'),
@@ -217,45 +236,88 @@ class App:
         )
 
         self.modelMatrixLocation = glGetUniformLocation(self.shader.shader, 'model')
+        self.viewMatrixLocation = glGetUniformLocation(self.shader.shader, 'view')
+        if shading == 'smooth':
+            self.lightLocation = {
+                "position": [
+                    glGetUniformLocation(self.shader.shader, f"Lights[{i}].position")
+                    for i in range(8)
+                ],
+                "color": [
+                    glGetUniformLocation(self.shader.shader, f"Lights[{i}].color")
+                    for i in range(8)
+                ],
+                "strength": [
+                    glGetUniformLocation(self.shader.shader, f"Lights[{i}].strength")
+                    for i in range(8)
+                ]
+            }
+        #self.camera = Camera(camera_pos)
+        self.cameraPosLoc = glGetUniformLocation(self.shader.shader, "cameraPosition")
 
         # main_loop
-        self._render_loop()
+        self._render_loop(world, shading)
 
-    def _start_context(self):
+    def _start_context(self, shading='smooth'):
         glfw.init()
         glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
         glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
         glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
 
-        self.window = create_window()
+        self.window = create_window(1280, 960)
 
         glClearColor(0.1, 0.2, 0.2, 1.0)
         glEnable(GL_BLEND)
         glEnable(GL_DEPTH_TEST)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
+        vs_path = r'shaders/simple/vertex.vs'
+        fs_path = r'shaders/simple/fragment.fs'
+        if shading == 'smooth':
+            vs_path = r'shaders/phong/vertex.vs'
+            fs_path = r'shaders/phong/fragment.fs' 
+
         self.shader = Shader(
-            r'shaders/simple/vertex.vs',
-            r'shaders/simple/fragment.fs'
+            vs_path=vs_path,
+            fs_path=fs_path
             )
         self.shader.use()
 
         glUniform1i(glGetUniformLocation(self.shader.shader, "imageTexture"), 0)
 
-    def _render_loop(self):
+    def _render_loop(self, world:World, shading='smooth'):
         while not glfw.window_should_close(self.window):
             process_input(self.window)
 
             # update model rotation
-            self.square.eulers[2] += 0.2
+            world.update(world.surface, 0.5)
+            ''' self.square.eulers[2] += 0.2
             if self.square.eulers[2] > 360:
-                self.square.eulers[2] -= 360
+                self.square.eulers[2] -= 360'''
 
             # refresh
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
             self.shader.use()   
-            self.texture.use()
+            world.surface.texture.use()
+
+            view_transform = pyrr.matrix44.create_look_at(
+                eye=world.camera.position,
+                target=world.camera.position + world.camera.forwards,
+                up=world.camera.up, dtype=np.float32
+            )
+
+            #breakpoint()
+
+            glUniformMatrix4fv(self.viewMatrixLocation, 1, GL_FALSE, view_transform)
+
+            if shading == 'smooth':
+                for i,light in enumerate(world.lights):
+                    glUniform3fv(self.lightLocation["position"][i], 1, light.position)
+                    glUniform3fv(self.lightLocation["color"][i], 1, light.color)
+                    glUniform1f(self.lightLocation["strength"][i], light.strength)
+
+            glUniform3fv(self.cameraPosLoc, 1, world.camera.position)
             
             # update matrices
             model_transform = pyrr.matrix44.create_identity(dtype=np.float32)
@@ -263,7 +325,7 @@ class App:
             model_transform = pyrr.matrix44.multiply(
                 m1=model_transform,
                 m2=pyrr.matrix44.create_from_eulers(
-                    eulers=np.radians(self.square.eulers),
+                    eulers=np.radians(world.surface.transforms.eulers),
                     dtype=np.float32
                 )
             )
@@ -271,25 +333,24 @@ class App:
             model_transform = pyrr.matrix44.multiply(
                 m1=model_transform,
                 m2=pyrr.matrix44.create_from_translation(
-                    vec=self.square.position,
+                    vec=world.surface.transforms.position,
                     dtype=np.float32
                 )
             )
 
             glUniformMatrix4fv(self.modelMatrixLocation, 1, GL_FALSE, model_transform)
 
-            glBindVertexArray(self.square_mesh.vao)
-            glDrawArrays(GL_TRIANGLES, 0, self.square_mesh.vertex_count)
+            glBindVertexArray(world.surface.mesh.vao)
+            glDrawArrays(GL_TRIANGLES, 0, world.surface.mesh.vertex_count)
 
             glfw.swap_buffers(self.window)
             glfw.poll_events()
 
             
 
-        self.square_mesh.destroy()
-        self.texture.destroy()
+        world.surface.mesh.destroy()
+        world.surface.texture.destroy()
         glDeleteProgram(self.shader.shader)  
         glfw.terminate()
         return None
-
 #endregion
