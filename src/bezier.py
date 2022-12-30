@@ -195,8 +195,8 @@ class BezierSurface:
                     
                     triangle_top = [
                         self.surface_points[x][y],
-                        self.surface_points[x][y+1],
                         self.surface_points[x+1][y+1],
+                        self.surface_points[x][y+1],
                         ]
                 except IndexError:
                     break

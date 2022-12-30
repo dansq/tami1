@@ -12,8 +12,10 @@ parser.add_argument('-n', metavar='int', type=int, default=2, help='n degree, de
 parser.add_argument('-s', '--subdivisions', metavar='int', type=int, default=8, help='number of subdivisions, default is 8')
 parser.add_argument('-cp', '--control_points', metavar='filepath', default='./control_points', type=str, help='filepath to the control points file')
 parser.add_argument('-tp', '--texture_path', metavar='filepath', default='gfx/map_checker.png', type=str, help='filepath to the texture file')
-parser.add_argument('-ks', metavar='float', type=float, default = 0.5, help='ks coefficient for lighting')
-parser.add_argument('-kd', metavar='float', type=float, default = 0.5, help='kd coefficient for lighting')
+parser.add_argument('-ka', metavar='float', type=float, default = 0.5, help='ambient coefficient for lighting')
+parser.add_argument('-ks', metavar='float', type=float, default = 0.5, help='sepcular coefficient for lighting')
+parser.add_argument('-kd', metavar='float', type=float, default = 0.5, help='diffuse coefficient for lighting')
+parser.add_argument('-a', '--alfa', metavar='int', type=int, default = 16, help='alfa value for specular highlights')
 parser.add_argument('-c', '--center', action='store_true', help='center the surface at the origin')
 parser.add_argument('-v', '--verbose', action='store_true', help='activate verbose mode')
 
@@ -49,6 +51,7 @@ center_bool = args.center
 n_div = args.subdivisions
 control_points = read_control_points_from_file(args.control_points)
 tex_path = args.texture_path
+l_const = (args.ka, args.kd, args.ks, args.alfa)
 
 if center_bool:
     center = find_surface_center_point(control_points)
@@ -89,5 +92,5 @@ if verbose:
 
 if __name__ == "__main__":
     #breakpoint()
-    app = App(surface=surface, tex_path=tex_path, verbose=verbose)
+    app = App(surface=surface, tex_path=tex_path, verbose=verbose, l_const=l_const)
     print("ACABOU")

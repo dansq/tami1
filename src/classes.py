@@ -101,8 +101,13 @@ class VBO:
 
 class Mesh:
 
-    def __init__(self, model_vbo:VBO) -> None:
+    def __init__(self, model_vbo:VBO, ka, kd, ks, alfa) -> None:
         """creates a mesh from vertices stored in a numpy-like array, using the VBO class"""
+
+        self.ka = ka
+        self.kd = kd
+        self.ks = ks
+        self.alfa = alfa
 
         # |x:y:z|u:v|nx:ny:nz|
         self.vertices = model_vbo.data
@@ -143,14 +148,14 @@ class ObjectContainer:
 class World:
     """holds surface and lights"""
 
-    def __init__(self, surface_vbo, texture):
+    def __init__(self, surface_vbo, texture, ka, ks, kd, alfa):
 
         surface_transform = Transforms(
                 position=[0,0.5,-3],
                 eulers=[0,0,0]
             )
 
-        surface_mesh = Mesh(surface_vbo)
+        surface_mesh = Mesh(surface_vbo, ka, ks, kd, alfa)
         
         self.surface = ObjectContainer(
             transform=surface_transform,
@@ -170,7 +175,7 @@ class World:
                     np.random.uniform(low=0.5, high=1.0), 
                     np.random.uniform(low=0.5, high=1.0)
                 ],
-                strength = 10
+                strength = 12
             )
             for i in range(8)
         ]
@@ -207,7 +212,7 @@ class World:
 
 class App:
 
-    def __init__(self, surface:BezierSurface, tex_path='gfx/map_checker.png', verbose=False, camera_pos=(0,0,4), shading='smooth') -> None:
+    def __init__(self, surface:BezierSurface, tex_path='gfx/map_checker.png', verbose=False, camera_pos=(0,0,4), shading='smooth', l_const=(0.4, 0.2, 0.3, 64)) -> None:
         """initialize the program"""
         # initialize glfw, create window, load shaders, etc
         self._start_context(shading=shading)
@@ -219,7 +224,7 @@ class App:
 
         surface_vbo = VBO(data=surface_data, stride=32, offsets=((3, 0),(2,12),(3,20)), elements_per_vertex=8)
         texture = Material(tex_path)
-        world = World(surface_vbo, texture)
+        world = World(surface_vbo, texture, *l_const)
 
 
 
@@ -237,6 +242,11 @@ class App:
 
         self.modelMatrixLocation = glGetUniformLocation(self.shader.shader, 'model')
         self.viewMatrixLocation = glGetUniformLocation(self.shader.shader, 'view')
+        self.ka = glGetUniformLocation(self.shader.shader, 'ka')
+        self.kd = glGetUniformLocation(self.shader.shader, 'kd')
+        self.ks = glGetUniformLocation(self.shader.shader, 'ks')
+        self.alfa = glGetUniformLocation(self.shader.shader, 'alfa')
+
         if shading == 'smooth':
             self.lightLocation = {
                 "position": [
@@ -290,7 +300,7 @@ class App:
             process_input(self.window)
 
             # update model rotation
-            world.update(world.surface, 0.5)
+            world.update(world.surface, 1)
             ''' self.square.eulers[2] += 0.2
             if self.square.eulers[2] > 360:
                 self.square.eulers[2] -= 360'''
@@ -308,6 +318,10 @@ class App:
             )
 
             #breakpoint()
+            glUniform1fv(self.ka, 1, world.surface.mesh.ka)
+            glUniform1fv(self.kd, 1, world.surface.mesh.kd)
+            glUniform1fv(self.ks, 1, world.surface.mesh.ks)
+            glUniform1fv(self.alfa, 1, world.surface.mesh.alfa)
 
             glUniformMatrix4fv(self.viewMatrixLocation, 1, GL_FALSE, view_transform)
 

@@ -14,6 +14,11 @@ uniform sampler2D imageTexture;
 uniform PointLight Lights[8];
 uniform vec3 cameraPosition;
 
+uniform float ks;
+uniform float kd;
+uniform float ka;
+uniform float alfa;
+
 out vec4 color;
 
 vec3 calculatePointLight(PointLight light, vec3 fragPosition, vec3 fragNormal);
@@ -21,7 +26,7 @@ vec3 calculatePointLight(PointLight light, vec3 fragPosition, vec3 fragNormal);
 void main()
 {
     //ambient
-    vec3 temp = 0.2 * texture(imageTexture, fragmentTexCoord).rgb;
+    vec3 temp = ka * texture(imageTexture, fragmentTexCoord).rgb;
 
     for (int i = 0; i < 8; i++) {
         temp += calculatePointLight(Lights[i], fragmentPosition, fragmentNormal);
@@ -43,10 +48,10 @@ vec3 calculatePointLight(PointLight light, vec3 fragPosition, vec3 fragNormal) {
     vec3 halfVec = normalize(fragLight + fragCamera);
 
     //diffuse
-    result += light.color * light.strength * max(0.0, dot(fragNormal, fragLight)) / (distance * distance) * baseTexture;
+    result += light.color * light.strength * (kd* max(0.0, dot(fragNormal, fragLight))) / (distance * distance) * baseTexture;
 
     //specular
-    result += light.color * light.strength * pow(max(0.0, dot(fragNormal, halfVec)),32) / (distance * distance);
+    result += light.color * light.strength * (ks *(pow(max(0.0, dot(fragNormal, halfVec)),alfa))) / (distance * distance);
 
     return result;
 }

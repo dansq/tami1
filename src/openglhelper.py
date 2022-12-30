@@ -31,7 +31,7 @@ def process_input(window):
 def setup_triangles_vertices(triangles:np.ndarray, shading='smooth', normals=False, use_colors=False, colors=False, has_texture=False, tex_coord=False):
     """formats points to a valid opengl VBO format"""
     if not normals:
-        vbo_normals = compute_triangle_normals(triangles, shading='flat')
+        vbo_normals = compute_triangle_normals(triangles, shading=shading)
         #breakpoint()
     if use_colors and not colors:
         # TODO, add something to use colors instead of textures
